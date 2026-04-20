@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.py[cod]
+mcp_env/
+venv/
+logs/*.jsonl
+artifacts/*.json
+*.mem
+*.raw
+*.pcap
+*.E01
+*.pem
+*.key
+id_rsa
