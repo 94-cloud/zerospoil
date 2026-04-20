@@ -89,7 +89,7 @@ CONFIDENCE: <HIGH/MEDIUM/LOW>
 NEXT_STEPS: <recommended IR actions>"""
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}]
     )
