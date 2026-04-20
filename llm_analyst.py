@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-r = redis.Redis(host=os.getenv("REDIS_HOST", "10.10.10.20"), port=6379, decode_responses=True)
+r = redis.Redis(host=os.getenv("REDIS_HOST", "127.0.0.1"), port=6379, decode_responses=True)
 MAX_ITERATIONS = 3
 LOG_FILE = "logs/execution_log.jsonl"
 
@@ -20,7 +20,7 @@ def log(entry):
         f.write(json.dumps(entry) + "\n")
     print(f"[LOG] {entry}")
 
-def load_artifacts():
+def load_processes():
     keys = r.keys("win11:processes:*")
     processes = []
     for key in sorted(keys):
@@ -33,6 +33,27 @@ def load_artifacts():
             except json.JSONDecodeError:
                 log({"event": "parse_error", "key": key})
     return processes
+
+def load_mft():
+    keys = r.keys("win11:mft:*")
+    findings = []
+    for key in keys:
+        raw = r.get(key)
+        if raw:
+            entry = json.loads(raw)
+            delta = entry.get("anomaly_notes", {}).get("si_fn_delta_days", 0)
+            if delta > 1:
+                findings.append({
+                    "file": entry.get("full_path"),
+                    "inode": entry.get("inode"),
+                    "SI_created": entry.get("SI_timestamps", {}).get("created"),
+                    "FN_created": entry.get("FN_timestamps", {}).get("created"),
+                    "delta_days": delta,
+                    "verdict": entry.get("anomaly_notes", {}).get("verdict"),
+                    "mitre": entry.get("anomaly_notes", {}).get("mitre")
+                })
+            log({"event": "mft_analyzed", "key": key, "delta_days": delta})
+    return findings
 
 def detect_parent_anomalies(processes):
     pid_map = {p["ProcessId"]: p["Name"] for p in processes}
@@ -48,7 +69,10 @@ def detect_parent_anomalies(processes):
         parent = pid_map.get(proc.get("ParentProcessId"), "unknown").lower()
         if name in suspicious:
             if parent not in [p.lower() for p in suspicious[name]]:
-                anomalies.append({"process": proc, "reason": f"{name} spawned by {parent}"})
+                anomalies.append({
+                    "process": proc,
+                    "reason": f"{name} spawned by {parent}"
+                })
     return anomalies
 
 def detect_missing_paths(processes):
@@ -57,7 +81,10 @@ def detect_missing_paths(processes):
     for proc in processes:
         if proc.get("Name", "").lower() in watchlist:
             if not proc.get("ExecutablePath"):
-                flagged.append({"process": proc, "reason": f"{proc['Name']} has null ExecutablePath"})
+                flagged.append({
+                    "process": proc,
+                    "reason": f"{proc['Name']} has null ExecutablePath"
+                })
     return flagged
 
 def three_sigma(processes):
@@ -69,7 +96,7 @@ def three_sigma(processes):
         return []
     return [p for p in processes if abs(p.get("ProcessId", 0) - mean) > 3 * std]
 
-def analyze(anomalies, iteration):
+def analyze(anomalies, mft_findings, iteration):
     prompt = f"""You are a senior forensic analyst. Iteration {iteration} of {MAX_ITERATIONS}.
 
 PARENT ANOMALIES:
@@ -81,16 +108,19 @@ MISSING PATH INDICATORS:
 THREE-SIGMA OUTLIERS:
 {json.dumps(anomalies.get("sigma_outliers", []), indent=2)}
 
+MFT TIMESTAMP ANOMALIES ($SI vs $FN):
+{json.dumps(mft_findings, indent=2)}
+
 Respond in this exact format:
-FINDINGS: <each anomaly with severity CRITICAL/HIGH/MEDIUM/LOW>
+FINDINGS: <each anomaly with severity CRITICAL/HIGH/MEDIUM/LOW and MITRE ATT&CK ID>
 FALSE_POSITIVES: <list any with reasoning>
-VERDICT: <overall assessment>
+VERDICT: <overall assessment and kill chain narrative>
 CONFIDENCE: <HIGH/MEDIUM/LOW>
 NEXT_STEPS: <recommended IR actions>"""
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=1000,
+        max_tokens=1500,
         messages=[{"role": "user", "content": prompt}]
     )
     return response.content[0].text
@@ -98,27 +128,34 @@ NEXT_STEPS: <recommended IR actions>"""
 def run():
     print("[*] ZeroSpoil starting...")
     log({"event": "start"})
-    processes = load_artifacts()
-    if not processes:
-        print("[-] No artifacts in Redis")
-        return
 
+    processes = load_processes()
+    if not processes:
+        print("[-] No process artifacts in Redis")
+        return
     print(f"[+] {len(processes)} processes loaded")
+
+    mft_findings = load_mft()
+    print(f"[+] {len(mft_findings)} MFT timestamp anomalies found")
+
     anomalies = {
         "parent_anomalies": detect_parent_anomalies(processes),
         "missing_paths": detect_missing_paths(processes),
         "sigma_outliers": three_sigma(processes)
     }
-    log({"event": "detection_complete",
-         "parent": len(anomalies["parent_anomalies"]),
-         "missing": len(anomalies["missing_paths"]),
-         "sigma": len(anomalies["sigma_outliers"])})
+    log({
+        "event": "detection_complete",
+        "parent": len(anomalies["parent_anomalies"]),
+        "missing": len(anomalies["missing_paths"]),
+        "sigma": len(anomalies["sigma_outliers"]),
+        "mft": len(mft_findings)
+    })
 
     report = None
     for i in range(1, MAX_ITERATIONS + 1):
         print(f"[*] Iteration {i}/{MAX_ITERATIONS}")
         log({"event": "iteration_start", "iteration": i})
-        report = analyze(anomalies, i)
+        report = analyze(anomalies, mft_findings, i)
         log({"event": "iteration_done", "iteration": i, "report": report})
         if "CONFIDENCE: HIGH" in report:
             print(f"[+] High confidence at iteration {i}, stopping")
@@ -127,7 +164,12 @@ def run():
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     path = f"logs/triage_report_{ts}.md"
     with open(path, "w") as f:
-        f.write(f"# ZeroSpoil Triage Report\nGenerated: {datetime.datetime.now().isoformat()}\n\n{report}\n")
+        f.write(f"# ZeroSpoil Triage Report\n")
+        f.write(f"Generated: {datetime.datetime.now().isoformat()}\n\n")
+        f.write(f"## Artifacts Analyzed\n")
+        f.write(f"- Processes: {len(processes)}\n")
+        f.write(f"- MFT anomalies: {len(mft_findings)}\n\n")
+        f.write(f"## Final Analysis\n\n{report}\n")
     print(f"[+] Report: {path}")
     log({"event": "complete", "report": path})
 
