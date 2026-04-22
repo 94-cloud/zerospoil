@@ -56,17 +56,18 @@ def load_mft():
     return findings
 
 def detect_parent_anomalies(processes):
-    pid_map = {p["ProcessId"]: p["Name"] for p in processes}
+    pid_map = {p["pid"]: p["name"] for p in processes}
     anomalies = []
     suspicious = {
-        "powershell.exe": ["explorer.exe", "cmd.exe"],
+        "powershell.exe": ["explorer.exe", "cmd.exe", "excel.exe"],
         "cmd.exe": ["explorer.exe"],
         "wscript.exe": ["explorer.exe"],
         "mshta.exe": ["explorer.exe"],
+        "svchost.exe": ["powershell.exe", "cmd.exe", "excel.exe"],
     }
     for proc in processes:
-        name = proc.get("Name", "").lower()
-        parent = pid_map.get(proc.get("ParentProcessId"), "unknown").lower()
+        name = proc.get("name", "").lower()
+        parent = pid_map.get(proc.get("ppid"), "unknown").lower()
         if name in suspicious:
             if parent not in [p.lower() for p in suspicious[name]]:
                 anomalies.append({
@@ -79,22 +80,22 @@ def detect_missing_paths(processes):
     flagged = []
     watchlist = ["svchost.exe", "lsass.exe", "services.exe"]
     for proc in processes:
-        if proc.get("Name", "").lower() in watchlist:
+        if proc.get("name", "").lower() in watchlist:
             if not proc.get("ExecutablePath"):
                 flagged.append({
                     "process": proc,
-                    "reason": f"{proc['Name']} has null ExecutablePath"
+                    "reason": f"{proc['name']} has null ExecutablePath"
                 })
     return flagged
 
 def three_sigma(processes):
-    pids = [p.get("ProcessId", 0) for p in processes]
+    pids = [p.get("pid", 0) for p in processes if p.get("pid") is not None]
     if len(pids) < 3:
         return []
     mean, std = np.mean(pids), np.std(pids)
     if std == 0:
         return []
-    return [p for p in processes if abs(p.get("ProcessId", 0) - mean) > 3 * std]
+    return [p for p in processes if p.get("pid") is not None and abs(int(p.get("pid", 0)) - mean) > 3 * std]
 
 def analyze(anomalies, mft_findings, iteration):
     prompt = f"""You are a senior forensic analyst. Iteration {iteration} of {MAX_ITERATIONS}.

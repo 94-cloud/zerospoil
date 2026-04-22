@@ -2,14 +2,14 @@ import json
 import random
 import string
 
-INPUT  = "/home/sansforensics/artifacts/win11_processes_sample.json"
+INPUT  = "/home/sansforensics/artifacts/processes_20260421_210448.json"
 OUTPUT = "/home/sansforensics/artifacts/win11_evil_processes.json"
 
 with open(INPUT, encoding="utf-8-sig") as f:
     processes = json.load(f)
 
 # Find explorer.exe PID to use as parent
-explorer_pid = next(p["ProcessId"] for p in processes if p["Name"] == "explorer.exe")
+explorer_pid = next(p["pid"] for p in processes if p["name"] == "explorer.exe")
 
 # Evil process 1: excel.exe (macro launcher)
 excel_pid = 11111
