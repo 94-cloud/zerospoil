@@ -16,7 +16,7 @@ class MemoryAnalyzer:
 @mcp.tool()
 def list_active_processes():
     """Wraps windows.pslist. Provides the baseline of what is running."""
-    analyzer = MemoryAnalyzer("/home/sansforensics/memdump.mem")
+    analyzer = MemoryAnalyzer("/home/sansforensics/cases/base-file-memory.img")
     return analyzer.run_vol("windows.pslist")
 
 @mcp.tool()
@@ -25,7 +25,7 @@ def find_hidden_processes():
     Wraps windows.psscan. Finds EPROCESS blocks unlinked from the active list.
     Delta between pslist and psscan output = hidden process indicator.
     """
-    analyzer = MemoryAnalyzer("/home/sansforensics/memdump.mem")
+    analyzer = MemoryAnalyzer("/home/sansforensics/cases/base-file-memory.img")
     return analyzer.run_vol("windows.psscan")
 
 if __name__ == "__main__":
