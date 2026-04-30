@@ -1,0 +1,55 @@
+import json
+import os
+from datetime import datetime
+
+# Load the real process list as base
+with open("/home/sansforensics/artifacts/processes_20260421_210448.json") as f:
+    processes = json.load(f)
+
+# Evil Layer 2: Excel -> Powershell macro chain
+evil = [
+    {
+        "pid": 4888,
+        "name": "EXCEL.EXE",
+        "ppid": 3200,
+        "path": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
+        "cmdline": "EXCEL.EXE /e C:\\Users\\lab-U\\Downloads\\Invoice_March2026.xlsm",
+        "timestamp": datetime.now().isoformat()
+    },
+    {
+        "pid": 5012,
+        "name": "powershell.exe",
+        "ppid": 4888,
+        "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "cmdline": "powershell.exe -nop -w hidden -enc JABjAGwAaQBlAG4AdA...",
+        "timestamp": datetime.now().isoformat()
+    },
+    {
+        "pid": 5244,
+        "name": "svchost.exe",
+        "ppid": 5012,
+        "path": "C:\\Users\\lab-U\\AppData\\Local\\Temp\\svchost.exe",
+        "cmdline": "svchost.exe -k netsvcs",
+        "timestamp": datetime.now().isoformat()
+    },
+    {
+        "pid": 5367,
+        "name": "xkqtmrwz.exe",
+        "ppid": 5244,
+        "path": "C:\\Users\\lab-U\\AppData\\Roaming\\xkqtmrwz.exe",
+        "cmdline": "xkqtmrwz.exe --config C:\\Users\\lab-U\\AppData\\Roaming\\cfg.dat",
+        "timestamp": datetime.now().isoformat()
+    }
+]
+
+# Inject evil into process list
+processes.extend(evil)
+
+# Save as new artifact
+ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+out_path = f"/home/sansforensics/artifacts/processes_{ts}.json"
+with open(out_path, "w") as f:
+    json.dump(processes, f, indent=2)
+
+print(f"[+] Evil injected -> {out_path}")
+print(f"[+] Total processes: {len(processes)} ({len(evil)} evil)")
