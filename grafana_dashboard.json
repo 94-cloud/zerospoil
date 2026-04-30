@@ -1,0 +1,112 @@
+{
+  "annotations": {"list": [{"builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard"}]},
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [{"icon": "external link", "title": "ZeroSpoil GitHub", "type": "link", "url": "https://github.com/94-cloud/zerospoil"}],
+  "panels": [
+    {"type": "text", "title": "", "gridPos": {"h": 2, "w": 24, "x": 0, "y": 0}, "id": 100,
+     "options": {"mode": "markdown", "content": "# ZeroSpoil Forensic Console\n**Pattern 3 Architecture** | Autonomous forensic analysis with zero evidence spoliation | SANS Find Evil! Hackathon | [github.com/94-cloud/zerospoil](https://github.com/94-cloud/zerospoil)"}},
+
+    {"type": "stat", "title": "Critical", "gridPos": {"h": 4, "w": 4, "x": 0, "y": 2}, "id": 1,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/alerts/by_severity", "fields": [{"jsonPath": "$.critical", "name": "Critical", "type": "number"}]}],
+     "fieldConfig": {"defaults": {"color": {"fixedColor": "red", "mode": "fixed"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}},
+     "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "textMode": "value"}},
+
+    {"type": "stat", "title": "High", "gridPos": {"h": 4, "w": 4, "x": 4, "y": 2}, "id": 2,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/alerts/by_severity", "fields": [{"jsonPath": "$.high", "name": "High", "type": "number"}]}],
+     "fieldConfig": {"defaults": {"color": {"fixedColor": "orange", "mode": "fixed"}}},
+     "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "textMode": "value"}},
+
+    {"type": "stat", "title": "Findings", "gridPos": {"h": 4, "w": 4, "x": 8, "y": 2}, "id": 3,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/metrics", "fields": [{"jsonPath": "$.llm_findings", "name": "Findings", "type": "number"}]}],
+     "fieldConfig": {"defaults": {"color": {"fixedColor": "blue", "mode": "fixed"}}},
+     "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "textMode": "value"}},
+
+    {"type": "stat", "title": "Kill Chain", "gridPos": {"h": 4, "w": 4, "x": 12, "y": 2}, "id": 4,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/kill_chain", "fields": [{"jsonPath": "$.detected", "name": "Detected", "type": "boolean"}]}],
+     "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"true": {"text": "DETECTED", "color": "red"}, "false": {"text": "CLEAR", "color": "green"}}}], "color": {"fixedColor": "red", "mode": "fixed"}}},
+     "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "textMode": "value"}},
+
+    {"type": "stat", "title": "Phase", "gridPos": {"h": 4, "w": 4, "x": 16, "y": 2}, "id": 5,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/status", "fields": [{"jsonPath": "$.phase", "name": "Phase", "type": "string"}]}],
+     "fieldConfig": {"defaults": {"color": {"fixedColor": "purple", "mode": "fixed"}}},
+     "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "textMode": "value"}},
+
+    {"type": "stat", "title": "Analysis Time", "gridPos": {"h": 4, "w": 4, "x": 20, "y": 2}, "id": 6,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/metrics", "fields": [{"jsonPath": "$.elapsed_sec", "name": "Seconds", "type": "number"}]}],
+     "fieldConfig": {"defaults": {"color": {"fixedColor": "semi-dark-green", "mode": "fixed"}, "unit": "s"}},
+     "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none", "textMode": "value"}},
+
+    {"type": "text", "title": "Kill Chain Reconstruction", "gridPos": {"h": 7, "w": 16, "x": 0, "y": 6}, "id": 10,
+     "options": {"mode": "markdown", "content": "### Attack Chain (confirmed across 3 evidence layers)\n\n| Phase | Evidence | MITRE ATT&CK |\n|-------|----------|---------------|\n| **Initial Access** | `invoice_april.xlsm` via spearphish | T1566.001 |\n| **Execution** | PowerShell `-Enc` download cradle (PID 11112 from EXCEL PID 11111) | T1059.001 |\n| **Defense Evasion** | Timestomping 828-1266 day SI/FN deltas on all dropped files | T1070.006 |\n| **Defense Evasion** | svchost.exe masquerading in `%TEMP%` (PID 11113) | T1036.005 |\n| **C2** | Beacon to `185.220.101.45:443` at 60s intervals, zero jitter, 144 bytes | T1071.001 |\n| **Exfiltration** | DNS tunneling via base64 subdomains to `*.exfil.evilc2.net` | T1048.003 |\n\n> **Cross-layer correlation:** C2 IP `185.220.101.45` appears in all 3 layers. SI timestamps on dropped files fall within a 2-second window coinciding with first C2 beacon. Self-correction: P-3 (uihoqnno.exe) downgraded to MEDIUM confidence — Volatility unavailable to confirm injection."}},
+
+    {"type": "table", "title": "Server Health", "gridPos": {"h": 7, "w": 8, "x": 16, "y": 6}, "id": 11,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/heartbeat", "fields": [
+       {"jsonPath": "$[*].server", "name": "Server", "type": "string"},
+       {"jsonPath": "$[*].online", "name": "Online", "type": "boolean"},
+       {"jsonPath": "$[*].age_seconds", "name": "Age (s)", "type": "number"}]}],
+     "fieldConfig": {"overrides": [{"matcher": {"id": "byName", "options": "Online"}, "properties": [{"id": "custom.displayMode", "value": "color-background"}, {"id": "mappings", "value": [{"type": "value", "options": {"true": {"text": "ONLINE", "color": "green"}, "false": {"text": "OFFLINE", "color": "red"}}}]}]}]},
+     "options": {"showHeader": true, "cellHeight": "sm"}},
+
+    {"type": "table", "title": "Live Alert Feed", "gridPos": {"h": 12, "w": 24, "x": 0, "y": 13}, "id": 20,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/alerts/recent?count=30", "fields": [
+       {"jsonPath": "$[*].severity", "name": "Severity", "type": "string"},
+       {"jsonPath": "$[*].source", "name": "Source", "type": "string"},
+       {"jsonPath": "$[*].title", "name": "Title", "type": "string"},
+       {"jsonPath": "$[*].detail", "name": "Detail", "type": "string"},
+       {"jsonPath": "$[*].confidence", "name": "Confidence", "type": "string"},
+       {"jsonPath": "$[*].timestamp", "name": "Time", "type": "time"}]}],
+     "fieldConfig": {"overrides": [
+       {"matcher": {"id": "byName", "options": "Severity"}, "properties": [{"id": "custom.width", "value": 90}, {"id": "custom.displayMode", "value": "color-background-solid"}, {"id": "mappings", "value": [{"type": "value", "options": {"critical": {"text": "CRITICAL", "color": "red"}, "high": {"text": "HIGH", "color": "orange"}, "medium": {"text": "MEDIUM", "color": "yellow"}, "low": {"text": "LOW", "color": "blue"}, "info": {"text": "INFO", "color": "text"}}}]}]},
+       {"matcher": {"id": "byName", "options": "Source"}, "properties": [{"id": "custom.width", "value": 110}, {"id": "custom.displayMode", "value": "color-text"}, {"id": "mappings", "value": [{"type": "value", "options": {"disk": {"text": "Disk MCP", "color": "blue"}, "memory": {"text": "Memory MCP", "color": "purple"}, "network": {"text": "Network MCP", "color": "green"}, "llm_analyst": {"text": "LLM Analyst", "color": "orange"}, "statistical": {"text": "Statistical", "color": "text"}, "orchestrator": {"text": "Orchestrator", "color": "text"}}}]}]},
+       {"matcher": {"id": "byName", "options": "Confidence"}, "properties": [{"id": "custom.width", "value": 90}, {"id": "custom.displayMode", "value": "color-text"}, {"id": "mappings", "value": [{"type": "value", "options": {"HIGH": {"color": "green"}, "MEDIUM": {"color": "yellow"}, "LOW": {"color": "red"}}}]}]},
+       {"matcher": {"id": "byName", "options": "Time"}, "properties": [{"id": "custom.width", "value": 160}]}]},
+     "options": {"showHeader": true, "cellHeight": "sm", "sortBy": [{"displayName": "Time", "desc": true}]}},
+
+    {"type": "piechart", "title": "Alerts by Source", "gridPos": {"h": 8, "w": 8, "x": 0, "y": 25}, "id": 30,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/alerts/by_source", "fields": [
+       {"jsonPath": "$[*].source", "name": "Source", "type": "string"},
+       {"jsonPath": "$[*].count", "name": "Count", "type": "number"}]}],
+     "options": {"pieType": "donut", "reduceOptions": {"calcs": ["lastNotNull"]}, "legend": {"displayMode": "table", "placement": "right"}}},
+
+    {"type": "bargauge", "title": "Alerts by Severity", "gridPos": {"h": 8, "w": 8, "x": 8, "y": 25}, "id": 31,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/alerts/by_severity", "fields": [
+       {"jsonPath": "$.critical", "name": "Critical", "type": "number"},
+       {"jsonPath": "$.high", "name": "High", "type": "number"},
+       {"jsonPath": "$.medium", "name": "Medium", "type": "number"},
+       {"jsonPath": "$.info", "name": "Info", "type": "number"}]}],
+     "fieldConfig": {"overrides": [
+       {"matcher": {"id": "byName", "options": "Critical"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]},
+       {"matcher": {"id": "byName", "options": "High"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
+       {"matcher": {"id": "byName", "options": "Medium"}, "properties": [{"id": "color", "value": {"fixedColor": "yellow", "mode": "fixed"}}]},
+       {"matcher": {"id": "byName", "options": "Info"}, "properties": [{"id": "color", "value": {"fixedColor": "text", "mode": "fixed"}}]}]},
+     "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "horizontal", "displayMode": "gradient"}},
+
+    {"type": "stat", "title": "Analysis Metrics", "gridPos": {"h": 8, "w": 8, "x": 16, "y": 25}, "id": 32,
+     "datasource": {"type": "marcusolsson-json-datasource"},
+     "targets": [{"refId": "A", "method": "GET", "urlPath": "/metrics", "fields": [
+       {"jsonPath": "$.processes_analyzed", "name": "Processes", "type": "number"},
+       {"jsonPath": "$.statistical_anomalies", "name": "Stat Anomalies", "type": "number"},
+       {"jsonPath": "$.llm_findings", "name": "LLM Findings", "type": "number"},
+       {"jsonPath": "$.elapsed_sec", "name": "Time (s)", "type": "number"}]}],
+     "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name", "orientation": "vertical"}}
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["zerospoil", "forensics", "SANS", "hackathon"],
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "ZeroSpoil Forensic Console",
+  "uid": "zerospoil-ciso-v1",
+  "version": 1
+}
